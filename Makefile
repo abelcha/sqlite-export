@@ -1,7 +1,7 @@
 CC := clang
 XX := clang++
 #  
-# CXXFLAGS := -O3 -march=native
+CXXFLAGS := -O3 -march=native
 INCLUDES := -I/opt/homebrew/include -I/usr/local/include
 LDFLAGS := -L/opt/homebrew/lib -L/usr/local/lib -lsqlite3
 

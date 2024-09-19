@@ -26,4 +26,12 @@ set -l sqlite_export     'sqlite_export "$db_file" "$dest_dir"'
 
 # hyperdryve
 # echo $h_sqlite2_std
-hyperfine commads -L compiler sqlite2_std duckdb_stdsqlite_utils,sqlite2dir,sqlite_export '{compiler} cargo.sqlite3 cargo.json'
+hyperfine commads -L file fraosm.sqlite  \
+'./litexp "{file}" "$dest_dir"' ' \
+'sqlite2dir "{file}" "$dest_dir" ' \
+'echo .quit |sqlite3 "{file}"  -json -cmd "select * from c2" > ex_sqlite.json' \
+'sqlite-utils query {file} "SELECT * FROM c2" > ex_sqlite_utils.json ' \
+'duckdb -json {file} -c "FROM c2" > ex_duckdb.json'
+
+
+hyperfine -L file fraosm.sqlite -M 2 --export-csv  "sqlite2dir {file} ex-2dir" 'echo .quit |sqlite3 {file}  -json -cmd "select * from kontour" > ex_sqlite.json' 'sqlite-utils query {file} "SELECT * FROM c2" > ex_sqlite_utils.json ' "duckdb -json {file} -c \"FROM kontour\" > ex_duckdb.json" "./litexp {file} ex_litexp.json"

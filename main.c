@@ -1,3 +1,4 @@
+#include <libgen.h>
 #include <sqlite3.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -281,6 +282,7 @@ int dump_tabular(sqlite3 *db, const char *table_name, FILE *pfs,
 }
 
 int dump_json(sqlite3 *db, const char *table_name, FILE *pfs, t_format format) {
+  // fprintf(stderr, "JSON FORMAT\n");
   // FILE *pfs = malloc(sizeof(pfs));
   // pfs->fputc = fputc;
   // bool JSONLINES = false;
@@ -300,7 +302,7 @@ int dump_json(sqlite3 *db, const char *table_name, FILE *pfs, t_format format) {
   int row_count = 0;
   // print headers:
   char headerKeys[num_cols][256];
-  printf("Setting Headervalues:");
+  // printf("Setting Headervalues:");
   for (int i = 0; i < num_cols; i++) {
     // headerKeys[i] = malloc(sizeof(char) * 256);
     snprintf(headerKeys[i], 255, "\"%s\":", sqlite3_column_name(stmt, i));
@@ -311,6 +313,7 @@ int dump_json(sqlite3 *db, const char *table_name, FILE *pfs, t_format format) {
     fputc('[', pfs);
     fputc('\n', pfs);
   }
+  int rate = 99;
   // fputc((i == 0) ? '[' : ',', parg);
   while (sqlite3_step(stmt) == SQLITE_ROW) {
     if (row_count++ && format != ndjson) {
@@ -326,12 +329,15 @@ int dump_json(sqlite3 *db, const char *table_name, FILE *pfs, t_format format) {
     }
     fputc('}', pfs);  // row_end
     fputc('\n', pfs); // row_sep
-    if (row_count % 999 == 0) {
+    if (row_count % 9 == 0) {
       fprintf(stderr, "\r%d", row_count);
+      if ((row_count * 1000) > rate) {
+        rate = rate * 10;
+      }
     }
-  }
-  if (format != ndjson) {
-    fputc(']', pfs); // end
+    if (format != ndjson) {
+      fputc(']', pfs); // end
+    }
   }
   return row_count;
 }
@@ -341,7 +347,7 @@ t_array_map array_map[] = {dump_json, dump_tabular, dump_json, dump_tabular,
 int main(int argc, char *argv[]) {
   sqlite3 *db;
   sqlite3_stmt *stmt;
-  t_format format = csv;
+  t_format format = json;
   char separator = ',';
   char *source_path = NULL;
   char *output_dir = NULL;
@@ -367,8 +373,10 @@ int main(int argc, char *argv[]) {
     }
   }
   if (!output_dir) {
-    // $input_dir-export
-    output_dir = "export-sqlite";
+    output_dir = malloc(1024);
+    memset(output_dir, 0, 1024);
+    snprintf(output_dir, 1024, "ex_%s", basename(source_path));
+    // strcat(strdup("export_"), basename(source_path));
   }
   fprintf(stderr, "source: %s\n", source_path);
   fprintf(stderr, "target: %s\n", output_dir);
@@ -395,6 +403,7 @@ int main(int argc, char *argv[]) {
   while (sqlite3_step(stmt) == SQLITE_ROW) {
     const char *table_name = (const char *)sqlite3_column_text(stmt, 0);
     int table_count = sqlite3_column_int(stmt, 1);
+
     FILE *output = stdout;
     char path[1024 * 4] = {0};
     if (output_dir != NULL) {
@@ -402,10 +411,12 @@ int main(int argc, char *argv[]) {
                extensions[format]);
       output = fopen(path, "w");
     }
-    fprintf(stderr, "\n    \t\t%s\t\t %d/%d ...", path, ++i, table_count);
-    printf("Before Loop %s ", table_name);
-    int total_rows = array_map[i](db, table_name, output, format);
-    printf("after Loop %s ", table_name);
+    fprintf(stderr, "\n\t\t%s\t\t%d/%d ...", path, ++i, table_count);
+    int total_rows = array_map[format](db, table_name, output, format);
+    if (total_rows) {
+      // fprintf(stderr, "\r%d", total_rows);
+    }
+    // fprintf(stderr, "\t\t%s\t\t ...", path);
   }
   fprintf(stderr, "\n");
   sqlite3_finalize(stmt);
